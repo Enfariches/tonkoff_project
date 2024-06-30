@@ -287,7 +287,7 @@ async def update_friends_balance():
     cur = db.cursor()
 
     cur.execute('''UPDATE profile SET friends_balance = (
-                    SELECT IFNULL(SUM(balance), 0)
+                    SELECT IFNULL(balance, 0)
                     FROM profile AS friends
                     WHERE friends.payload = profile.user_username
                    );''')
