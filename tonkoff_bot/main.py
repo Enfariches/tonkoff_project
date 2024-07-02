@@ -1,12 +1,14 @@
 from config import dp, bot
 from admin_handlers.admin import *
-from database.db_bot import db_start
+from middlewares.db import DataBaseSession
+from database.engine import create_db, session_maker
 
 import asyncio
 import bot_handlers
 
 async def main():
-    await db_start()
+    dp.update.middleware(DataBaseSession(session_pool=session_maker))
+    await create_db()
     await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":

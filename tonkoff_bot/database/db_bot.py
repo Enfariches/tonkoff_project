@@ -1,322 +1,148 @@
 import sqlite3 as sq
 import aiosqlite
 
-async def db_start():
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    cur.execute('''CREATE TABLE IF NOT EXISTS profile(
-                   user_username TEXT PRIMARY KEY,
-                   user_id INTEGER,
-                   wallet_address TEXT, 
-                   ref_link TEXT, 
-                   count_invited INTEGER, 
-                   payload TEXT, 
-                   balance INTEGER,
-                   friends_balance INTEGER,
-                   user_score INTEGER,
-                   friends_score INTEGER,
-                   total FLOAT,
-                   last_reset_time TEXT
-                );''')
-    db.commit()
-
-    cur.execute('''CREATE TABLE IF NOT EXISTS check_user(
-                       user_username TEXT PRIMARY KEY, user_id INTEGER, 
-                       canal_ru BOOlEAN, chat_ru BOOlEAN,
-                       canal_en BOOlEAN, chat_en BOOlEAN,
-                       quest_1 BOOlEAN, quest_2 BOOlEAN, 
-                       quest_3 BOOlEAN, quest_4 BOOlEAN, 
-                       quest_5 BOOlEAN, quest_6 BOOlEAN                  
-                    );''')
-    db.commit()
-
-    cur.execute('''CREATE TABLE IF NOT EXISTS message(
-                       user_username TEXT PRIMARY KEY,
-                       admin_message TEXT
-                    );''')
-    db.commit()
-
-    db.close()
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.models import Profile, CheckUser, Message
+from sqlalchemy import select, update
 
 
+async def create_check_user(session: AsyncSession, user_id):
 
-async def create_check_user(user_username, user_id):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    user = cur.execute('''SELECT 1 FROM check_user WHERE user_username == ?;''', (user_username,)).fetchone()
-    if not user:
-        cur.execute(
-            '''INSERT INTO check_user(
-                        user_username, user_id, 
-                        canal_ru, chat_ru,
-                        canal_en, chat_en,
-                        quest_1, quest_2, 
-                        quest_3, quest_4, 
-                        quest_5, quest_6) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);''',
-            (user_username, user_id, None, None, None, None, None, None, None, None, None, None))
-    db.commit()
-    db.close()
+    user = await session.execute(select(CheckUser).where(CheckUser.user_id == user_id))
+    if user.fetchone() is None:
+        new_user = CheckUser(
+            user_id=user_id,
+        )
+        session.add(new_user)
+        await session.commit()
+    await session.close()
 
 
-async def create_profile(user_username, user_id, payload):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def create_profile(session: AsyncSession, user_id, user_username, payload):
 
-    user = cur.execute('''SELECT 1 FROM profile WHERE user_username == ?;''', (user_username,)).fetchone()
-    if not user:
-        cur.execute(
-            '''INSERT INTO profile(user_username, user_id, wallet_address, 
-                                   ref_link, count_invited, payload, balance, friends_balance,
-                                   user_score, friends_score, total, last_reset_time) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);''',
-            (user_username, user_id, None, "", 0, payload, 0, 0, 0, 0, 0, None))
-        if payload != "":
-            cur.execute(
-                '''UPDATE profile SET count_invited = count_invited + 1 WHERE user_username = ?;''',
-                (payload,))
-        db.commit()
-    db.close()
+    user = await session.execute(select(Profile).where(Profile.user_id == user_id))
+    if user.fetchone() is None:
+        new_user = Profile(
+            user_id=user_id,
+            user_username=user_username,
+            payload=payload
+        )
+        session.add(new_user)
+        if payload != None:
+            await session.execute(update(Profile).values(count_invited=Profile.count_invited + 1).where(Profile.user_id == payload))
+        await session.commit()
+    await session.close()
 
 
-async def update_link_profile(user_username, ref_link):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def update_link_profile(session: AsyncSession, user_id, ref_link):
 
-    link = cur.execute(f'''SELECT ref_link FROM profile WHERE user_username == '{user_username}';''').fetchone()
-    if link[0] == '':
-        cur.execute(f'''UPDATE profile SET ref_link = ? WHERE user_username == ?;''', (ref_link, user_username))
-        db.commit()
-    db.close()
+    query = update(Profile).where(Profile.user_id == user_id).values(
+        ref_link = ref_link
+    )
+    await session.execute(query)
+    await session.commit()
 
-async def get_user_score_profile(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
 
-    user_score = cur.execute(f'''SELECT user_score from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return user_score[0]
+async def get_field(session: AsyncSession, user_id, name_field):
 
-async def update_canal_ru_check(user_username):
-    async with aiosqlite.connect("mydb.db") as db:
-        await db.execute('''UPDATE check_user SET canal_ru = TRUE WHERE user_username = ?;''', (user_username,))
-        await db.commit()
+    field = await session.execute(select(getattr(Profile, name_field)).where(Profile.user_id == user_id))
+    field = field.fetchone()[0]
+    await session.close()
+    return field
 
-async def check_canal_ru_status(user_username: str) -> bool:
-    async with aiosqlite.connect("mydb.db") as db:
-        async with db.execute("SELECT canal_ru FROM check_user WHERE user_username = ?", (user_username,)) as cursor:
-            record = await cursor.fetchone()
-            if record is None:
-                return False
-            return record[0]
+async def status_check(session: AsyncSession, user_id, name_field):
 
-async def update_canal_en_check(user_username):
-    async with aiosqlite.connect("mydb.db") as db:
-        await db.execute('''UPDATE check_user SET canal_en = TRUE WHERE user_username = ?;''', (user_username,))
-        await db.commit()
+    check = await session.execute(select(getattr(CheckUser, name_field)).where(CheckUser.user_id == user_id))
+    check_status = check.fetchone()[0]
+    await session.close()
+    return check_status
 
-async def check_canal_en_status(user_username: str) -> bool:
-    async with aiosqlite.connect("mydb.db") as db:
-        async with db.execute("SELECT canal_en FROM check_user WHERE user_username = ?", (user_username,)) as cursor:
-            record = await cursor.fetchone()
-            if record is None:
-                return False
-            return record[0]
+async def update_check(session: AsyncSession, user_id, name_field):
 
-async def update_chat_ru_check(user_username):
-    async with aiosqlite.connect("mydb.db") as db:
-        await db.execute('''UPDATE check_user SET chat_ru = TRUE WHERE user_username = ?;''', (user_username,))
-        await db.commit()
+    query = update(CheckUser).where(CheckUser.user_id == user_id).values(**{name_field: True})
+    await session.execute(query)
+    await session.commit()
 
-async def check_chat_ru_status(user_username: str) -> bool:
-    async with aiosqlite.connect("mydb.db") as db:
-        async with db.execute("SELECT chat_ru FROM check_user WHERE user_username = ?", (user_username,)) as cursor:
-            record = await cursor.fetchone()
-            if record is None:
-                return False
-            return record[0]
 
-async def update_chat_en_check(user_username):
-    async with aiosqlite.connect("mydb.db") as db:
-        await db.execute('''UPDATE check_user SET chat_en = TRUE WHERE user_username = ?;''', (user_username,))
-        await db.commit()
+async def update_friends_score(session: AsyncSession, user_id):
 
-async def check_chat_en_status(user_username: str) -> bool:
-    async with aiosqlite.connect("mydb.db") as db:
-        async with db.execute("SELECT chat_en FROM check_user WHERE user_username = ?", (user_username,)) as cursor:
-            record = await cursor.fetchone()
-            if record is None:
-                return False
-            return record[0]
+    query_friend = await session.execute(select(Profile.user_score).where(Profile.payload == user_id))
+    if query_friend.fetchone() is not None:
+        query = update(Profile.friends_score).where(Profile.user_id == user_id).values(query_friend.fetchone()[0])
+        await session.execute(query)
+        await session.commit()
+    await session.close()
 
-async def update_twitter_check(user_username):
-    async with aiosqlite.connect("mydb.db") as db:
-        await db.execute('''UPDATE check_user SET quest_1 = TRUE WHERE user_username = ?;''', (user_username,))
-        await db.commit()
 
-async def check_twitter_status(user_username: str) -> bool:
-    async with aiosqlite.connect("mydb.db") as db:
-        async with db.execute("SELECT quest_1 FROM check_user WHERE user_username = ?", (user_username,)) as cursor:
-            record = await cursor.fetchone()
-            if record is None:
-                return False
-            return record[0]
+async def get_invited_users(session: AsyncSession, user_id):
 
-async def get_count_profile(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+    query_friends = await session.execute(select(Profile.user_username, Profile.total).where(Profile.payload == user_id))
+    if query_friends.fetchall() is not None:
+        lst_friend = [(user[0], user[1]) for user in query_friends.fetchall()]
+        await session.close()
+        return lst_friend
+    await session.close()
 
-    count = cur.execute(f'''SELECT count_invited from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return count[0]
+async def update_wallet_address(session: AsyncSession, user_id, wallet_address):
 
-async def update_friends_score():
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+    await session.execute(update(Profile).values(wallet_address = wallet_address).where(Profile.user_id == user_id))
+    await session.commit()
 
-    cur.execute('''UPDATE profile SET friends_score = (
-                    SELECT IFNULL(SUM(user_score), 0)
-                    FROM profile AS friends
-                    WHERE friends.payload = profile.user_username
-                   );''')
-    db.commit()
-    db.close()
+async def get_top_50_users(session: AsyncSession):
+    query = await session.execute(select(Profile.user_username, Profile.total).order_by(Profile.total).limit(50))
+    result = query.fetchall()
+    await session.close()
+    return result
 
-async def get_friends_score_profile(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def get_all_user_ids(session: AsyncSession):
 
-    balance = cur.execute(f'''SELECT friends_score from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return balance[0]
+    query = await session.execute(select(Profile.user_id))
+    result = [row[0] for row in query.fetchall()]
+    await session.close()
+    return result
 
-async def get_invited_users(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def create_message(session: AsyncSession, user_id):
 
-    invited_users = cur.execute('''SELECT user_username, total FROM profile WHERE payload = ?;''', (user_username,)).fetchall()
-    db.close()
-    return [(user[0], user[1]) for user in invited_users]
+    user = await session.execute(select(Message).where(Message.user_id == user_id))
+    if user.fetchone() is None:
+        new_user = Message(
+            user_id=user_id,          
+        )
+        session.add(new_user)
+        await session.commit()
+    await session.close()
 
-async def update_wallet_address(address, user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def update_message(session, user_id, admin_message):
 
-    cur.execute('''UPDATE profile SET wallet_address = ? WHERE user_username = ?;''', (address, user_username))
-    db.commit()
-    db.close()
+    await session.execute(update(Message).values(admin_message = admin_message).where(Message.user_id == user_id))
+    await session.commit()
 
-async def get_top_50_users():
-    async with aiosqlite.connect("mydb.db") as db:
-        cur = await db.execute('''SELECT user_username, total FROM profile ORDER BY total DESC LIMIT 50;''')
-        result = await cur.fetchall()
-        return result
+async def get_message(session: AsyncSession, user_id):
 
-async def get_wallet_address(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+    field = await session.execute(select(Message.admin_message).where(Message.user_id == user_id))
+    field = field.fetchone()[0]
+    await session.close()
+    return field
 
-    wallet = cur.execute(f'''SELECT wallet_address from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return wallet[0]
+async def update_balance(session: AsyncSession, user_id, profit):
 
-async def get_all_user_ids():
-    async with aiosqlite.connect("mydb.db") as db:
-        cur = await db.execute('''SELECT user_id FROM profile''')
-        result = await cur.fetchall()
-        return [row[0] for row in result]
+    await session.execute(update(Profile).values(balance=Profile.balance + profit).where(Profile.user_id == user_id))
+    await session.commit()
 
-async def db_message_start():
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def update_friends_balance(session: AsyncSession, user_id):
 
-    cur.execute('''CREATE TABLE IF NOT EXISTS message(
-                   user_username TEXT PRIMARY KEY,
-                   admin_message TEXT
-                );''')
-    db.commit()
-    db.close()
+    query_friend = await session.execute(select(Profile.balance).where(Profile.payload == user_id))
+    if query_friend.fetchone() is not None:
+        query = update(Profile.friends_balance).where(Profile.user_id == user_id).values(query_friend.fetchone[0])
+        await session.execute(query)
+        await session.commit()
+    await session.close()
 
-async def create_message(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
+async def update_total(session: AsyncSession, user_id, total):
 
-    user = cur.execute('''SELECT 1 FROM message WHERE user_username == ?;''', (user_username,)).fetchone()
-    if not user:
-        cur.execute(
-            '''INSERT INTO message(user_username, admin_message) VALUES(?,?);''',
-            (user_username, ''))
-    db.commit()
-    db.close()
+    await session.execute(update(Profile).values(total = total).where(Profile.user_id == user_id))
+    await session.commit()
 
-async def update_message(admin_message, user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    cur.execute('''UPDATE message SET admin_message = ? WHERE user_username = ?;''', (admin_message, user_username))
-    db.commit()
-    db.close()
-
-async def get_message(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    message = cur.execute(f'''SELECT admin_message from message WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return message[0]
-
-async def update_balance(profit, user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    cur.execute('''UPDATE profile SET balance = balance + ? WHERE user_username = ?;''', (profit, user_username))
-    db.commit()
-    db.close()
-
-async def get_balance_profile(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    balance = cur.execute(f'''SELECT balance from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return balance[0]
-
-async def update_friends_balance():
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    cur.execute('''UPDATE profile SET friends_balance = (
-                    SELECT IFNULL(balance, 0)
-                    FROM profile AS friends
-                    WHERE friends.payload = profile.user_username
-                   );''')
-    db.commit()
-    db.close()
-
-async def get_friends_balance(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    balance = cur.execute(f'''SELECT friends_balance from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return balance[0]
-
-async def update_total(total, user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    cur.execute('''UPDATE profile SET total = ? WHERE user_username = ?;''', (total, user_username))
-    db.commit()
-    db.close()
-
-async def get_total(user_username):
-    db = sq.connect("mydb.db")
-    cur = db.cursor()
-
-    total = cur.execute(f'''SELECT total from profile WHERE user_username == '{user_username}';''').fetchone()
-    db.close()
-    return total[0]
 
 
 

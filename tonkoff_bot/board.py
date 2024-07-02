@@ -21,7 +21,7 @@ tasks_board = InlineKeyboardMarkup(inline_keyboard=tasks_buttons)
 ru_channel_buttons = [[InlineKeyboardButton(text="Канал RU", url="https://t.me/aleg_tonkoff")],[InlineKeyboardButton(text="Проверить", callback_data="Проверка_канал_ru"), InlineKeyboardButton(text="Вернуться назад", callback_data="Задания")]]
 ru_channel_board = InlineKeyboardMarkup(inline_keyboard=ru_channel_buttons)
 
-en_channel_buttons = [[InlineKeyboardButton(text="Канал EN", url="https://t.me/aleg_tonkoff_en")],[InlineKeyboardButton(text="Проверить", callback_data="Проверка_канал_en"), InlineKeyboardButton(text="Вернуться назад", callback_data="Задания")]]
+en_channel_buttons = [[InlineKeyboardButton(text="Канал EN", url="https://t.me/myfavh_ch")],[InlineKeyboardButton(text="Проверить", callback_data="Проверка_канал_en"), InlineKeyboardButton(text="Вернуться назад", callback_data="Задания")]]
 en_channel_board = InlineKeyboardMarkup(inline_keyboard=en_channel_buttons)
 
 ru_chat_buttons = [[InlineKeyboardButton(text="Чат RU", url="https://t.me/TONKOFF_chat_ru")],

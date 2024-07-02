@@ -1,4 +1,0 @@
-ERROR (2024-06-30 12:10:36,906): Ошибка: Telegram server says - Bad Request: user not found. Пользователь: ambiewnt (417908989) (Line: 29) (Func: query_handler) [en_channel.py]
-CRITICAL (2024-06-30 13:17:10,024): Ошибка: Telegram server says - Bad Request: user not found. Пользователь: sobaken_marcel (1311520715) (Line: 29) (Func: query_handler) [en_channel.py]
-ERROR (2024-06-30 14:14:07,146): Ошибка: 'NoneType' object is not subscriptable. Пользователь: ambiewnt (417908989) (Line: 23) (Func: query_handler) [reflink.py]
-ERROR (2024-06-30 14:14:16,407): Ошибка: 'NoneType' object is not subscriptable. Пользователь: ambiewnt (417908989) (Line: 23) (Func: query_handler) [reflink.py]

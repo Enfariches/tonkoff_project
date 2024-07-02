@@ -4,7 +4,8 @@ from aiogram import F
 from config import dp, bot, logger
 import board as b
 
-from database.db_bot import check_chat_ru_status, update_balance, update_chat_ru_check
+from database.db_bot import update_balance, status_check, update_check
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @dp.callback_query(F.data == "Чат_ru")
 async def query_handler(callback_query: CallbackQuery):
@@ -13,10 +14,10 @@ async def query_handler(callback_query: CallbackQuery):
     await callback_query.message.delete()
 
 @dp.callback_query(F.data == "Проверка_чат_ru")
-async def query_handler(callback_query: CallbackQuery):
+async def query_handler(callback_query: CallbackQuery, session: AsyncSession):
 
     try:
-        already_checked = await check_chat_ru_status(user_username=callback_query.from_user.username)
+        already_checked = await status_check(session, callback_query.from_user.id, "chat_ru")
         if already_checked:
             await bot.answer_callback_query(callback_query_id=callback_query.id,
                                             text='You have already received points for subscribing to this chat', show_alert=True)
@@ -32,10 +33,10 @@ async def query_handler(callback_query: CallbackQuery):
     if user_channel_status_ru.status != "left":
 
         try:
-            await update_chat_ru_check(user_username=callback_query.from_user.username)
+            await update_check(session, callback_query.from_user.id, "chat_ru")
             
             try:
-                await update_balance(profit=700, user_username=callback_query.from_user.username)
+                await update_balance(session, callback_query.from_user.id, profit=700)
                 await bot.answer_callback_query(callback_query_id=callback_query.id, text=f'+700 на балансе😉', show_alert=True)
             except Exception as e:
                 logger.error(f"Ошибка: {e}. Пользователь: {callback_query.from_user.username} ({callback_query.from_user.id})")

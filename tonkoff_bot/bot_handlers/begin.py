@@ -4,16 +4,17 @@ from aiogram import F
 from config import dp, bot, logger
 import board as b
 
-from database.db_bot import update_canal_ru_check
+from database.db_bot import update_check
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @dp.callback_query(F.data == "Начать")
-async def query_handler(callback_query: CallbackQuery):
+async def query_handler(callback_query: CallbackQuery, session: AsyncSession):
 
-    user_channel_status_ru = await bot.get_chat_member(chat_id='@myfavh_ch', user_id=callback_query.from_user.id) #Изменить в конце на TONKOFF
+    user_channel_status_ru = await bot.get_chat_member(chat_id='@myfavhero', user_id=callback_query.from_user.id)
     if user_channel_status_ru.status != "left":
         
         try:
-            await update_canal_ru_check(user_username=callback_query.from_user.username)
+            await update_check(session, callback_query.from_user.id, "canal_ru")
             await bot.send_photo(chat_id=callback_query.from_user.id,
                                     photo=FSInputFile(path="tonkoff_bot/assets/status_picture.jpg"),
                                     reply_markup=b.menu_board)

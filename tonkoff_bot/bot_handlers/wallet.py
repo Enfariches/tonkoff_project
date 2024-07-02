@@ -4,7 +4,7 @@ from aiogram import F
 
 from config import dp, bot
 
-from wallet_handlers.wallet_state import *
+from admin_handlers.admin import WalletState
 
 @dp.callback_query(F.data == "Wallet")
 async def query_handler(callback_query: CallbackQuery, state: FSMContext):

@@ -4,36 +4,39 @@ from aiogram import F
 from config import dp, bot, logger
 import board as b
 
-from database.db_bot import get_user_score_profile, get_wallet_address, get_balance_profile, get_friends_score_profile
-from database.db_bot import update_total, get_friends_balance, update_friends_score, update_friends_balance
+from database.db_bot import get_field, update_total
+from database.db_bot import update_friends_score, update_friends_balance
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @dp.callback_query(F.data == "Счет")
-async def query_handler(callback_query: CallbackQuery):
+async def query_handler(callback_query: CallbackQuery, session: AsyncSession):
 
     try:
-        user_score = await get_user_score_profile(callback_query.from_user.username)
-        user_balance = await get_balance_profile(callback_query.from_user.username)
-        wallet = await get_wallet_address(callback_query.from_user.username)
+        user_score = await get_field(session, callback_query.from_user.id, "user_score")
+        user_balance = await get_field(session, callback_query.from_user.id, "balance")
+        wallet = await get_field(session, callback_query.from_user.id, "wallet_address")
     except Exception as e:
         logger.error(f"Ошибка: {e}. Пользователя: {callback_query.from_user.username} ({callback_query.from_user.id})")
     
     try:
-        await update_friends_score()
-        bonus_score = await get_friends_score_profile(callback_query.from_user.username) * 0.3
+        await update_friends_score(session, callback_query.from_user.id)
+        bonus_score = await get_field(session, callback_query.from_user.id, "friends_score") * 0.3
         bonus_score_sum = round(bonus_score + user_score, 1)
     except Exception as e:
         logger.error(f"Ошибка: {e}. Пользователя: {callback_query.from_user.username} ({callback_query.from_user.id})")
     
     try:
-        await update_friends_balance()
-        bonus_balance = await get_friends_balance(callback_query.from_user.username) * 0.3
+        await update_friends_balance(session, callback_query.from_user.id)
+        bonus_balance = await get_field(session, callback_query.from_user.id, "friends_balance") * 0.3
         bonus_balance_sum = round(bonus_balance, 1)
     except Exception as e:
         logger.error(f"Ошибка: {e}. Пользователя: {callback_query.from_user.username} ({callback_query.from_user.id})")
 
     total_bonus = bonus_balance_sum + bonus_balance_sum + user_balance
+
     try:
-        await update_total(total_bonus, user_username=callback_query.from_user.username)
+        await update_total(session, callback_query.from_user.id, total_bonus)
     except Exception as e:
         logger.error(f"Ошибка: {e}. Пользователя: {callback_query.from_user.username} ({callback_query.from_user.id})")
 
